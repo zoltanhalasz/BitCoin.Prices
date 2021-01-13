@@ -1,0 +1,77 @@
+@using BitCoin.Prices.Services
+@using BitCoin.Prices.Models
+
+@namespace BitCoin.Prices
+@inherits ModuleBase
+@inject IPricesService PricesService
+@inject NavigationManager NavigationManager
+
+@if (_Pricess == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <ActionLink Action="Add" Security="SecurityAccessLevel.Edit" Text="Add Prices" />
+    <br />
+    <br />
+    @if (@_Pricess.Count != 0)
+    {
+        <Pager Items="@_Pricess">
+            <Header>
+                <th style="width: 1px;">&nbsp;</th>
+                <th style="width: 1px;">&nbsp;</th>
+                <th>Name</th>
+            </Header>
+            <Row>
+                <td><ActionLink Action="Edit" Parameters="@($"id=" + context.PricesId.ToString())" /></td>
+                <td><ActionDialog Header="Delete Prices" Message="@("Are You Sure You Wish To Delete The " + context.Name + " Prices?")" Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" /></td>
+                <td>@context.Name</td>
+            </Row>
+        </Pager>
+    }
+    else
+    {
+        <p>No Pricess To Display</p>
+    }
+}
+
+
+@code {
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = ModulePath() + "Module.css" },
+        new Resource { ResourceType = ResourceType.Script, Url = ModulePath() + "Module.js" }
+    };
+
+    List<Prices> _Pricess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _Pricess = await PricesService.GetPricessAsync(ModuleState.ModuleId);
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading Prices {Error}", ex.Message);
+            AddModuleMessage("Error Loading Prices", MessageType.Error);
+        }
+    }
+
+    private async Task Delete(Prices Prices)
+    {
+        try
+        {
+            await PricesService.DeletePricesAsync(Prices.PricesId, ModuleState.ModuleId);
+            await logger.LogInformation("Prices Deleted {Prices}", Prices);
+            _Pricess = await PricesService.GetPricessAsync(ModuleState.ModuleId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting Prices {Prices} {Error}", Prices, ex.Message);
+            AddModuleMessage("Error Deleting Prices", MessageType.Error);
+        }
+    }
+}

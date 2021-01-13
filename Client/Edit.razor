@@ -1,0 +1,100 @@
+@using Oqtane.Modules.Controls
+@using BitCoin.Prices.Services
+@using BitCoin.Prices.Models
+
+@namespace BitCoin.Prices
+@inherits ModuleBase
+@inject IPricesService PricesService
+@inject NavigationManager NavigationManager
+
+<table class="table table-borderless">
+    <tr>
+        <td>
+            <Label For="name" HelpText="Enter a name">Name: </Label>
+        </td>
+        <td>
+            <input id="name" class="form-control" @bind="@_name" />
+        </td>
+    </tr>
+</table>
+<button type="button" class="btn btn-success" @onclick="Save">Save</button>
+<NavLink class="btn btn-secondary" href="@NavigateUrl()">Cancel</NavLink>
+<br />
+<br />
+@if (PageState.Action == "Edit")
+{
+    <AuditInfo CreatedBy="@_createdby" CreatedOn="@_createdon" ModifiedBy="@_modifiedby" ModifiedOn="@_modifiedon"></AuditInfo>
+}
+
+@code {
+    public override SecurityAccessLevel SecurityAccessLevel => SecurityAccessLevel.Edit;
+
+    public override string Actions => "Add,Edit";
+
+    public override string Title => "Manage Prices";
+
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = ModulePath() + "Module.css" }
+    };
+
+    int _id;
+    string _name;
+    string _createdby;
+    DateTime _createdon;
+    string _modifiedby;
+    DateTime _modifiedon;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (PageState.Action == "Edit")
+            {
+                _id = Int32.Parse(PageState.QueryString["id"]);
+                Prices Prices = await PricesService.GetPricesAsync(_id, ModuleState.ModuleId);
+                if (Prices != null)
+                {
+                    _name = Prices.Name;
+                    _createdby = Prices.CreatedBy;
+                    _createdon = Prices.CreatedOn;
+                    _modifiedby = Prices.ModifiedBy;
+                    _modifiedon = Prices.ModifiedOn;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading Prices {PricesId} {Error}", _id, ex.Message);
+            AddModuleMessage("Error Loading Prices", MessageType.Error);
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (PageState.Action == "Add")
+            {
+                Prices Prices = new Prices();
+                Prices.ModuleId = ModuleState.ModuleId;
+                Prices.Name = _name;
+                Prices = await PricesService.AddPricesAsync(Prices);
+                await logger.LogInformation("Prices Added {Prices}", Prices);
+            }
+            else
+            {
+                Prices Prices = await PricesService.GetPricesAsync(_id, ModuleState.ModuleId);
+                Prices.Name = _name;
+                await PricesService.UpdatePricesAsync(Prices);
+                await logger.LogInformation("Prices Updated {Prices}", Prices);
+            }
+            NavigationManager.NavigateTo(NavigateUrl());
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Saving Prices {Error}", ex.Message);
+            AddModuleMessage("Error Saving Prices", MessageType.Error);
+        }
+    }
+}
